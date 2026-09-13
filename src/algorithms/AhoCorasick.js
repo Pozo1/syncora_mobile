@@ -1,45 +1,107 @@
 /**
- * Autômato de Aho-Corasick - Fase 1
+ * Autômato de Aho-Corasick - Fases 1, 2 e 3 (Final)
  * Projeto Syncora (IC - Computabilidade e Complexidade de Algoritmos)
  * 
  * Motivação: Pré-processar as strings (gêneros e artistas do Spotify) 
- * garantindo complexidade de tempo linear $O(N)$. Isso blinda o banco
- * de dados contra o gargalo do Regex (que tem pior caso O(N*M)) e
- * prepara o terreno limpo para o BFS rodar.
+ * garantindo complexidade de tempo linear O(N). Blinda o banco de dados contra
+ * o gargalo do Regex e prepara o terreno para o BFS de recomendação rodar.
  */
 
 class TrieNode {
   constructor() {
-    this.children = {}; // Mapeia as próximas letras (nós filhos da árvore)
-    this.fail = null;   // Ponteiro de falha (Failure Link) - crucial para evitar o backtracking
-    this.output = [];   // Guarda a keyword completa (ex: "Indie Rock") quando chega no final do ramo
+    this.children = {}; 
+    this.fail = null;   
+    this.output = [];   
   }
 }
 
 export class AhoCorasick {
   constructor() {
-    this.root = new TrieNode(); // Inicia a árvore com um nó raiz vazio
+    this.root = new TrieNode(); 
   }
 
   /**
-   * Constrói a Trie (Árvore de Prefixos) com as palavras-chave do Spotify.
-   * Custo computacional: $O(M)$, onde M é o tamanho da palavra que estamos inserindo.
+   * Fase 1: Constrói a Trie (Árvore de Prefixos) com as palavras-chave.
    */
   addKeyword(word) {
     let current = this.root;
     
-    // Desce na árvore letra por letra. Se a letra não existir no caminho, cria o nó.
     for (let char of word) {
       if (!current.children[char]) {
         current.children[char] = new TrieNode();
       }
-      current = current.children[char]; // Pula para a próxima letra
+      current = current.children[char]; 
     }
     
-    // Chegou na última letra da palavra, então carimbamos o nó como uma saída válida
     current.output.push(word);
   }
 
-  // TODO: Implementar a construção dos links de falha (Etapa 2)
-  // TODO: Implementar a busca no texto do usuário em tempo linear (Etapa 3)
+  /**
+   * Fase 2: Constrói os ponteiros de falha usando Busca em Largura (BFS).
+   */
+  buildFailureLinks() {
+    let queue = []; 
+
+    for (let char in this.root.children) {
+      let child = this.root.children[char];
+      child.fail = this.root;
+      queue.push(child);
+    }
+
+    while (queue.length > 0) {
+      let current = queue.shift();
+
+      for (let char in current.children) {
+        let child = current.children[char];
+        queue.push(child);
+
+        let fallback = current.fail;
+        while (fallback !== null && !fallback.children[char]) {
+          fallback = fallback.fail;
+        }
+
+        child.fail = fallback ? fallback.children[char] : this.root;
+        child.output = [...child.output, ...child.fail.output];
+      }
+    }
+  }
+
+  /**
+   * Fase 3: A Varredura (Search) em Tempo Linear O(N).
+   * Recebe o texto bruto e extrai todas as palavras-chave mapeadas,
+   * utilizando os links de falha para nunca fazer backtracking.
+   */
+  search(text) {
+    let current = this.root;
+    let results = [];
+
+    // Varre o texto caractere por caractere (sempre pra frente)
+    for (let i = 0; i < text.length; i++) {
+      let char = text[i];
+
+      // Se não tem caminho e não estamos na raiz, usa o link de falha
+      while (current !== null && !current.children[char]) {
+        current = current.fail;
+      }
+
+      // Se caiu antes da raiz, volta pra raiz. Se achou caminho, avança.
+      if (current === null) {
+        current = this.root;
+      } else {
+        current = current.children[char];
+      }
+
+      // Se o nó atual tiver alguma palavra finalizada, capturamos o match!
+      if (current.output.length > 0) {
+        for (let word of current.output) {
+          results.push({
+            keyword: word,
+            indexEncontrado: i - word.length + 1
+          });
+        }
+      }
+    }
+
+    return results;
+  }
 }
