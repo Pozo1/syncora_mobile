@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabaseClient';
 
 const CLIENT_ID = '3e3ae82b8e834bc0a68dd4b9c462c268';
-const CLIENT_SECRET = '0f2e1d2fec4e489583e484c6a5a84b9e'; 
+const CLIENT_SECRET = process.env.EXPO_PUBLIC_SPOTIFY_SECRET; 
 
 const discovery = {
   authorizationEndpoint: 'https://accounts.spotify.com/authorize',
