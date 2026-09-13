@@ -8,8 +8,11 @@ import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-ico
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ConfettiView from 'react-native-confetti';
-import * as Haptics from 'expo-haptics'; // 🔥 Importação do Haptics
+import * as Haptics from 'expo-haptics';
 import { supabase } from '../services/supabaseClient';
+
+// 🔥 INTEGRAÇÃO DA INICIAÇÃO CIENTÍFICA: Motor BFS
+import { MatchBFS } from '../algorithms/BFS';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.92;
@@ -121,33 +124,80 @@ export default function DiscoverScreen({ navigation }) {
   }, []);
 
   const fetchProfiles = async () => {
-    const myId = await AsyncStorage.getItem('spotify_id');
-    
-    const { data: mySwipes } = await supabase
-      .from('swipes')
-      .select('swiped_id')
-      .eq('swiper_id', myId);
+    try {
+      const mySpotifyId = await AsyncStorage.getItem('spotify_id');
+      if (!mySpotifyId) return;
 
-    const swipedIds = mySwipes ? mySwipes.map(s => s.swiped_id) : [];
+      // 1. Pega o UUID interno da tabela profiles e as pessoas já swipadas
+      const { data: myProfile } = await supabase.from('profiles').select('id').eq('spotify_id', mySpotifyId).single();
+      const { data: mySwipes } = await supabase.from('swipes').select('swiped_id').eq('swiper_id', mySpotifyId);
+      
+      const myInternalId = myProfile?.id;
+      const swipedIds = mySwipes ? mySwipes.map(s => s.swiped_id) : [];
+      let recommendedIds = [];
 
-    let query = supabase
-      .from('profiles')
-      .select('*')
-      .not('name', 'is', null)
-      .neq('spotify_id', myId)
-      .order('created_at', { ascending: false });
+      // ==========================================
+      // MOTOR DA INICIAÇÃO CIENTÍFICA (Aho-Corasick + BFS)
+      // ==========================================
+      if (myInternalId) {
+        const { data: edges } = await supabase.from('taste_edges').select('*');
+        
+        if (edges && edges.length > 0) {
+          // Agrupa quem ouve o quê para criar as conexões
+          const keywordToUsers = {};
+          edges.forEach(e => {
+            if(!keywordToUsers[e.taste_keyword]) keywordToUsers[e.taste_keyword] = [];
+            keywordToUsers[e.taste_keyword].push({ user: e.user_id, weight: e.affinity_score });
+          });
 
-    if (swipedIds.length > 0) {
-      query = query.not('spotify_id', 'in', `(${swipedIds.map(id => `"${id}"`).join(',')})`);
+          // Monta o grafo de usuário para usuário
+          const userGraph = {};
+          edges.forEach(e => {
+            const u1 = e.user_id;
+            if(!userGraph[u1]) userGraph[u1] = [];
+            
+            const others = keywordToUsers[e.taste_keyword] || [];
+            others.forEach(other => {
+              if(other.user !== u1) {
+                const pesoCombinado = (e.affinity_score + other.weight) / 2;
+                userGraph[u1].push({ destino: other.user, peso: pesoCombinado });
+              }
+            });
+          });
+
+          // Roda o BFS aplicando o Time-Decay (ignora peso < 0.5)
+          const bfs = new MatchBFS(userGraph);
+          recommendedIds = bfs.encontrarMatches(myInternalId, 0.5);
+        }
+      }
+      // ==========================================
+
+      // 2. Monta a Query Final de busca no Supabase
+      let query = supabase.from('profiles').select('*').not('name', 'is', null).neq('spotify_id', mySpotifyId);
+
+      if (swipedIds.length > 0) {
+        query = query.not('spotify_id', 'in', `(${swipedIds.map(id => `"${id}"`).join(',')})`);
+      }
+
+      // Injeta as recomendações do BFS na Query (ou usa Fallback se o grafo estiver vazio)
+      if (recommendedIds.length > 0) {
+        query = query.in('id', recommendedIds);
+      } else {
+        query = query.order('created_at', { ascending: false }).limit(15);
+      }
+
+      const { data, error } = await query;
+
+      if (!error && data) {
+        setProfiles(data);
+        if (data.length === 0) setAllSwiped(true);
+      }
+      
+      setLoading(false);
+    } catch (error) {
+      console.log("Erro na travessia de perfis:", error);
+      setLoading(false);
     }
-
-    const { data, error } = await query;
-
-    if (!error && data) {
-      setProfiles(data);
-      if (data.length === 0) setAllSwiped(true);
-    }
-    setLoading(false);
   };
 
   const syncMySpotifyToDatabase = async () => {
@@ -197,7 +247,6 @@ export default function DiscoverScreen({ navigation }) {
       useNativeDriver: true
     }).start();
 
-    // 🔥 GATILHO FÍSICO (HAPTICS) 🔥
     if (type === 'syncra') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), 200);
@@ -394,7 +443,7 @@ export default function DiscoverScreen({ navigation }) {
                   <Text style={styles.syncraTitle}>SYNKY MATCH!</Text>
                   <Text style={styles.syncraSubtitle}>VOCÊS ESTÃO NA MESMA FREQUÊNCIA AGORA</Text>
                   <View style={styles.syncraTrackBadge}>
-                     <Text style={styles.syncraTrackText}>{myLiveTrack.title} — {myLiveTrack.artist}</Text>
+                      <Text style={styles.syncraTrackText}>{myLiveTrack.title} — {myLiveTrack.artist}</Text>
                   </View>
                 </View>
               ) : (
