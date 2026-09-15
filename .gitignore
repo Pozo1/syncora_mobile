@@ -1,6 +1,4 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
+# dependencias
 node_modules/
 
 # Expo
@@ -30,8 +28,11 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# SEGURANÇA E AMBIENTE
+.env
+.env.local
+.env.*
+*.env
 
 # typescript
 *.tsbuildinfo
@@ -39,3 +40,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# RASTROS DE IA E FERRAMENTAS LOCAIS
+CLAUDE.md
+AGENTS.md
