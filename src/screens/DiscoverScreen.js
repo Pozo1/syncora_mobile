@@ -1,3 +1,4 @@
+import { TasteManager } from '../services/TasteManager';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, 
@@ -226,7 +227,27 @@ export default function DiscoverScreen({ navigation }) {
         setMyLiveTrack({ isPlaying: false, title: "Nenhuma música tocando", artist: "Abra o Spotify" });
       }
 
+      // 1. Atualiza o perfil normal para a tela do aplicativo
       await supabase.from('profiles').update(trackData).eq('spotify_id', myId);
+
+      // 🔥 2. GATILHO DA INICIAÇÃO CIENTÍFICA (Aho-Corasick + Time Decay) 🔥
+      const { data: myProfile, error: profileError } = await supabase.from('profiles').select('id').eq('spotify_id', myId).single();
+      
+      console.log("🔍 [DEBUG] ID do Spotify:", myId);
+      console.log("🔍 [DEBUG] Música atual:", trackData.current_track);
+      console.log("🔍 [DEBUG] Perfil encontrado no BD:", myProfile);
+      
+      if (profileError) {
+        console.log("❌ [ERRO] Falha ao buscar perfil no Supabase:", profileError.message);
+      }
+
+      if (myProfile && trackData.current_track !== "Pausado") {
+        console.log("🚀 [SUCESSO] Disparando o TasteManager para o ID:", myProfile.id);
+        TasteManager.updateTasteGraph(myProfile.id, trackData.current_track, trackData.current_artist);
+      } else {
+        console.log("⚠️ [AVISO] TasteManager não foi chamado. Faltou perfil ou música pausada.");
+      }
+
     } catch (error) { 
       console.log("Erro de sincronização:", error); 
     }

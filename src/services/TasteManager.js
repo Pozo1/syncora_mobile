@@ -1,14 +1,9 @@
 /**
  * Gerenciador de Afinidades Musicais (TasteManager)
  * Projeto Syncora (IC - Computabilidade e Complexidade de Algoritmos)
- * 
- * Motivação: Alimentar a tabela 'taste_edges' de forma dinâmica.
- * Intercepta a música atual do usuário, extrai tags via Aho-Corasick em O(N)
- * e aplica o decaimento temporal (time-decay) reduzindo o peso de gêneros ociosos.
  */
 
 import { supabase } from './supabaseClient';
-// Ajuste o caminho de importação conforme a estrutura real das suas pastas
 import { AhoCorasick } from '../algorithms/AhoCorasick'; 
 
 class TasteManagerService {
@@ -17,51 +12,51 @@ class TasteManagerService {
     this.isInitialized = false;
   }
 
-  /**
-   * Alimenta o autômato com o dicionário de palavras-chave.
-   * Na vida real, isso viria de uma tabela de gêneros, mas para a IC
-   * usamos um dicionário estático para demonstrar a extração linear.
-   */
   initAutomaton() {
     if (this.isInitialized) return;
     
+    // Dicionário de Gêneros Principais
     const tags = [
       "rock", "trap", "pop", "indie", "sertanejo", "eletronica", 
-      "the weeknd", "funk", "mpb", "hip hop", "rap", "r&b"
+      "the weeknd", "funk", "mpb", "hip hop", "rap", "r&b", "post malone",
+      "pagode", "samba", "lo-fi", "jazz", "kpop"
     ];
     
     tags.forEach(tag => this.ac.addKeyword(tag));
-    this.ac.buildFailureLinks(); // Constrói a árvore para evitar backtracking
+    this.ac.buildFailureLinks(); 
     
     this.isInitialized = true;
   }
 
-  /**
-   * Processa a música atual e atualiza a rede de grafos no Supabase.
-   * @param {string} userId - UUID interno do perfil do usuário
-   * @param {string} trackName - Título da música
-   * @param {string} artistName - Nome do artista
-   */
   async updateTasteGraph(userId, trackName, artistName) {
     if (!userId || !trackName || trackName === "Pausado") return;
     
     this.initAutomaton();
 
-    // 1. Limpa e junta o texto sujo que veio da API do Spotify
     const rawText = `${trackName} ${artistName}`.toLowerCase();
+    console.log(`\n🧠 [TASTE MANAGER] Vasculhando a string: "${rawText}"`);
     
-    // 2. Extração O(N) das tags matemáticas
     const matches = this.ac.search(rawText);
+    let extractedTags = [];
     
-    // Se não encontrou nenhuma tag mapeada, aborta para não onerar o banco
-    if (matches.length === 0) return;
-
-    // Remove tags duplicadas caso a string gere repetições
-    const extractedTags = [...new Set(matches.map(m => m.keyword))];
+    if (matches.length > 0) {
+      // Achou um gênero no dicionário!
+      extractedTags = [...new Set(matches.map(m => m.keyword))];
+      console.log(`✅ [TASTE MANAGER] Gênero identificado via Aho-Corasick:`, extractedTags);
+    } else {
+      // 🚨 FALLBACK ALGORÍTMICO: Não achou o gênero? Usa o Artista Principal!
+      // Separa por vírgula (caso tenha feat) e pega o primeiro nome
+      const mainArtist = artistName.split(',')[0].trim().toLowerCase();
+      
+      if (mainArtist && mainArtist !== "perfil offline") {
+        extractedTags = [mainArtist];
+        console.log(`🔄 [TASTE MANAGER] Plano B ativado! Usando o artista como nó do grafo: [${mainArtist}]`);
+      } else {
+        return; // Só aborta se realmente não tiver artista nenhum
+      }
+    }
 
     try {
-      // 3. APLICAÇÃO DO TIME-DECAY
-      // Busca todas as arestas de gosto atuais do usuário
       const { data: currentEdges } = await supabase
         .from('taste_edges')
         .select('*')
@@ -69,7 +64,6 @@ class TasteManagerService {
 
       if (currentEdges && currentEdges.length > 0) {
         for (let edge of currentEdges) {
-          // Se for um gosto antigo (que não está tocando agora), apodrece o peso em 10%
           if (!extractedTags.includes(edge.taste_keyword)) {
             const newScore = Math.max(0, edge.affinity_score - 0.1); 
             await supabase
@@ -80,8 +74,6 @@ class TasteManagerService {
         }
       }
 
-      // 4. RENOVAÇÃO DO GRAFO (UPSERT)
-      // As tags que ele está ouvindo agora vão direto para o peso máximo (1.0)
       for (let tag of extractedTags) {
          const { data: existingEdge } = await supabase
            .from('taste_edges')
@@ -91,7 +83,6 @@ class TasteManagerService {
            .single();
 
          if (existingEdge) {
-           // Gosto já existe no banco: apenas "ressuscita" o peso para 1.0
            await supabase
              .from('taste_edges')
              .update({ 
@@ -100,7 +91,6 @@ class TasteManagerService {
              })
              .eq('id', existingEdge.id);
          } else {
-           // Gosto virgem: cria a conexão inicial no grafo
            await supabase
              .from('taste_edges')
              .insert({
