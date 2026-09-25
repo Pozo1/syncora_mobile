@@ -44,3 +44,4 @@ yarn-error.*
 # RASTROS DE IA E FERRAMENTAS LOCAIS
 CLAUDE.md
 AGENTS.md
+.agents/
