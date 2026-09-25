@@ -1,0 +1,11 @@
+ID,Base,String,Titulo,Status,Motivo_Exclusao,Avaliador
+1,ACM DL,1,Efficient string matching: an aid to bibliographic search,Aprovado,-,Rodrigo
+2,IEEE Xplore,2,Direction-optimizing breadth-first search,Aprovado,-,Gabriel
+3,Scopus,3,Temporal networks,Aprovado,-,Rodrigo
+4,IEEE Xplore,1,Toward the next generation of recommender systems,Aprovado,-,Gabriel
+5,ACM DL,1,A guided tour to approximate string matching,Aprovado,-,Rodrigo
+6,ACM DL,1,Hardware acceleration for string matching,Rejeitado,Foco em hardware (FPGA/GPU),Rodrigo
+7,IEEE Xplore,2,GNN-based recommendation in social apps,Rejeitado,Foco em Redes Neurais (GNN),Gabriel
+8,Scopus,3,Commercial API resilience for temporal graphs,Rejeitado,Escopo puramente comercial,Rodrigo
+9,IEEE Xplore,2,Heuristics for fast graph traversal,Rejeitado,Falta analise exata de tempo,Gabriel
+10,ACM DL,1,String matching for malware detection,Rejeitado,Foge do escopo de redes temporais,Rodrigo
