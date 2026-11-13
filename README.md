@@ -1,5 +1,7 @@
 # Syncora 🎵
 
+https://youtu.be/ik4cGbR_fng?is=NXLSRLIL2Rhw8ikW  -  Vídeo de apresentação
+
 Syncora é um aplicativo de relacionamento e conexão social focado em sintonia musical. Diferente dos apps tradicionais baseados apenas em fotos, o Syncora utiliza a API do Spotify para cruzar dados de hábitos musicais em tempo real, permitindo conexões autênticas entre usuários com base na compatibilidade sonora.
 
 *Projeto acadêmico desenvolvido para o curso de Ciência da Computação da Universidade Braz Cubas.*
