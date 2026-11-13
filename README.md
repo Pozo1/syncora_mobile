@@ -56,3 +56,5 @@ Ao rodar o comando do Expo, veja o IP gerado no terminal (exemplo: exp://192.168
 
 Depois de salvar o arquivo, basta fazer o envio dessa documentação final:
 
+
+https://pozo1.github.io/syncora_mobile/#hero
